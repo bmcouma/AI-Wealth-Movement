@@ -2052,6 +2052,7 @@ export default function App() {
             </p>
             <div className="mt-3 text-slate-500 text-[11px]">
               © {new Date().getFullYear()} AI Wealth Movement. All rights reserved.
+              <span className="block text-slate-400 text-[10px]">Built by Bravin Ouma</span>
             </div>
           </div>
         </div>

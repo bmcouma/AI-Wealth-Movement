@@ -36,11 +36,49 @@ import {
   Layers,
   ArrowRight
 } from 'lucide-react';
-
+import { loadPlatformData } from "./services/platformApi";
+import { submitContactMessage } from "./services/contactApi";
 export default function App() {
   const [currentTab, setCurrentTab] = useState<ActiveTab>('home');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // API-backed datasets; local arrays remain as fallback data.
+  const [apiTools, setApiTools] = useState<AITool[]>(TOOLS_DATA);
+  const [apiPrompts, setApiPrompts] = useState<PromptItem[]>(PROMPTS_DATA);
+  const [apiJobs, setApiJobs] = useState<AIJob[]>(JOBS_DATA);
+  const [apiGisResources, setApiGisResources] =
+    useState<GisResource[]>(GIS_RESOURCES);
+  const [apiLearningCourses, setApiLearningCourses] =
+    useState<LearningCourse[]>(LEARNING_COURSES);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    loadPlatformData()
+      .then((data) => {
+        if (cancelled) return;
+
+        if (data.tools !== null) setApiTools(data.tools);
+        if (data.prompts !== null) setApiPrompts(data.prompts);
+        if (data.jobs !== null) setApiJobs(data.jobs);
+        if (data.gis !== null) {
+          setApiGisResources(data.gis);
+          if (data.gis.length > 0) {
+            setGisActiveWorkflow(data.gis[0]);
+          }
+        }
+        if (data.learning !== null) setApiLearningCourses(data.learning);
+      })
+      .catch((error) => {
+        console.error("Platform data loading failed:", error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
 
   // Favorites state persisted in localStorage
   const [savedTools, setSavedTools] = useState<string[]>(() => {
@@ -94,7 +132,7 @@ export default function App() {
   const [showSavedOnlyJobs, setShowSavedOnlyJobs] = useState(false);
 
   // GIS Interactive Simulator State (NDVI Calculator)
-  const [gisActiveWorkflow, setGisActiveWorkflow] = useState<GisResource>(GIS_RESOURCES[0]);
+  const [gisActiveWorkflow, setGisActiveWorkflow] = useState<GisResource>(apiGisResources[0]);
   const [activeStepIndex, setActiveStepIndex] = useState(0);
   const [copiedCodeSnippet, setCopiedCodeSnippet] = useState(false);
   // Interactive NDVI Band Simulator Values
@@ -227,7 +265,7 @@ export default function App() {
 
   // Filtered tools
   const filteredTools = useMemo(() => {
-    return TOOLS_DATA.filter((tool) => {
+    return apiTools.filter((tool) => {
       const matchesSearch = 
         tool.name.toLowerCase().includes(toolSearch.toLowerCase()) || 
         tool.description.toLowerCase().includes(toolSearch.toLowerCase()) ||
@@ -242,7 +280,7 @@ export default function App() {
 
   // Filtered Prompts
   const filteredPrompts = useMemo(() => {
-    return PROMPTS_DATA.filter((p) => {
+    return apiPrompts.filter((p) => {
       const matchesSearch = 
         p.title.toLowerCase().includes(promptSearch.toLowerCase()) || 
         p.task.toLowerCase().includes(promptSearch.toLowerCase()) ||
@@ -254,7 +292,7 @@ export default function App() {
 
   // Filtered Jobs
   const filteredJobs = useMemo(() => {
-    return JOBS_DATA.filter((job) => {
+    return apiJobs.filter((job) => {
       const matchesCat = jobCategory === 'All' || job.category === jobCategory;
       const matchesType = jobType === 'All' || job.type === jobType;
       const matchesSearch = 
@@ -292,19 +330,40 @@ export default function App() {
     }, 800);
   };
 
-  // Handle contact form submit
-  const handleContactSubmit = (e: React.FormEvent) => {
+  // Submit contact messages to the Django API
+  const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!contactMessage.name || !contactMessage.email || !contactMessage.message) {
+
+    const name = contactMessage.name.trim();
+    const email = contactMessage.email.trim();
+    const message = contactMessage.message.trim();
+
+    if (!name || !email || !message) {
       triggerToast('Please fill out all contact fields.');
       return;
     }
+
     setContactSent(true);
-    setTimeout(() => {
-      setContactSent(false);
+
+    try {
+      await submitContactMessage({
+        name,
+        email,
+        subject: 'Website contact form',
+        message,
+      });
+
       setContactMessage({ name: '', email: '', message: '' });
-      triggerToast('Inquiry sent! Our coordination team will respond shortly.');
-    }, 700);
+      triggerToast('Message sent successfully. Thank you for contacting us.');
+    } catch (error) {
+      triggerToast(
+        error instanceof Error
+          ? error.message
+          : 'Unable to send your message. Please try again.'
+      );
+    } finally {
+      setContactSent(false);
+    }
   };
 
   // NDVI calculation for the interactive simulator: (NIR - Red) / (NIR + Red)
@@ -524,11 +583,11 @@ export default function App() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                  { title: 'AI Tools Directory', desc: 'Direct access to vetted code assistants, GIS platforms, and automation engines.', tab: 'tools', count: `${TOOLS_DATA.length} Tools` },
-                  { title: 'Prompt Studio', desc: 'Customizable variables with live previews for high-precision model execution.', tab: 'prompts', count: `${PROMPTS_DATA.length} Formulas` },
-                  { title: 'GIS & Satellite AI', desc: 'Sentinel-2 band math, NDVI indices, building footprint segmentation, and GEE.', tab: 'gis', count: `${GIS_RESOURCES.length} Guides` },
-                  { title: 'Opportunities Board', desc: 'Profiles in data labeling, model auditing, spatial analysis, and agent workflows.', tab: 'jobs', count: `${JOBS_DATA.length} Profiles` },
-                  { title: 'Learning Syllabus', desc: 'Self-paced roadmaps with concrete technical checklists and outcomes.', tab: 'learning', count: `${LEARNING_COURSES.length} Tracks` },
+                  { title: 'AI Tools Directory', desc: 'Direct access to vetted code assistants, GIS platforms, and automation engines.', tab: 'tools', count: `${apiTools.length} Tools` },
+                  { title: 'Prompt Studio', desc: 'Customizable variables with live previews for high-precision model execution.', tab: 'prompts', count: `${apiPrompts.length} Formulas` },
+                  { title: 'GIS & Satellite AI', desc: 'Sentinel-2 band math, NDVI indices, building footprint segmentation, and GEE.', tab: 'gis', count: `${apiGisResources.length} Guides` },
+                  { title: 'Opportunities Board', desc: 'Profiles in data labeling, model auditing, spatial analysis, and agent workflows.', tab: 'jobs', count: `${apiJobs.length} Profiles` },
+                  { title: 'Learning Syllabus', desc: 'Self-paced roadmaps with concrete technical checklists and outcomes.', tab: 'learning', count: `${apiLearningCourses.length} Tracks` },
                   { title: 'Workflow Automation', desc: 'Connect webhooks, REST APIs, and generative completions without code.', tab: 'tools', count: 'No-Code' },
                   { title: 'Interactive NDVI Simulator', desc: 'Hands-on band reflectance slider with real-time health index calculations.', tab: 'gis', count: 'Interactive' },
                   { title: 'Community Index', desc: 'Suggest verified resources or contribute prompt templates for review.', tab: 'about', count: 'Open Access' }
@@ -568,7 +627,7 @@ export default function App() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {TOOLS_DATA.filter(t => t.featured).slice(0, 3).map((tool) => (
+                  {apiTools.filter(t => t.featured).slice(0, 3).map((tool) => (
                     <div key={tool.id} className="p-4 rounded-lg bg-[#0E1526] border border-slate-800 flex flex-col justify-between">
                       <div>
                         <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
@@ -1467,7 +1526,7 @@ export default function App() {
 
             {/* Workflow selector tabs */}
             <div className="flex flex-wrap gap-2 mb-6">
-              {GIS_RESOURCES.map((wf) => (
+              {apiGisResources.map((wf) => (
                 <button
                   key={wf.id}
                   onClick={() => {
@@ -1579,7 +1638,7 @@ export default function App() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {LEARNING_COURSES.map((course) => {
+              {apiLearningCourses.map((course) => {
                 const totalModules = course.modules.length;
                 const completedCount = course.modules.filter(m => completedModules.includes(m.id)).length;
                 const progressPct = Math.round((completedCount / totalModules) * 100);

@@ -2052,11 +2052,17 @@ export default function App() {
             </p>
             <div className="mt-3 text-slate-500 text-[11px]">
               © {new Date().getFullYear()} AI Wealth Movement. All rights reserved.
-              <span className="block text-slate-400 text-[10px]">Built by Bravin Ouma</span>
+              <span className="block text-slate-400 text-[10px]">Built by Bravin M Ouma</span>
+              <a href="https://www.linkedin.com/in/bravin-ouma/" target="_blank" rel="noopener noreferrer" className="ml-2 text-slate-400 hover:text-white text-[10px]">LinkedIn</a>
             </div>
           </div>
         </div>
       </footer>
+      {/* WhatsApp floating contact button */}
+      <a href="https://wa.me/254791832015" target="_blank" rel="noopener noreferrer" className="fixed bottom-4 right-4 bg-green-500 hover:bg-green-600 text-white rounded-full p-3 shadow-lg z-50" aria-label="Contact us on WhatsApp">
+        {/* simple WhatsApp text; replace with SVG icon if needed */}
+        <span className="text-sm font-bold">WhatsApp</span>
+      </a>
     </div>
   );
 }
